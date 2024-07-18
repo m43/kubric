@@ -1,4 +1,4 @@
-# Copyright 2023 The Kubric Authors.
+# Copyright 2024 The Kubric Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@ from typing import Tuple, Union, List
 
 import traitlets as tl
 
-import kubric  # pylint: disable=unused-import
 from kubric.utils import next_global_count
 from kubric.core import color
 from kubric.core import traits as ktl

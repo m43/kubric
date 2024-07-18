@@ -1,4 +1,4 @@
-# Copyright 2023 The Kubric Authors.
+# Copyright 2024 The Kubric Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -278,5 +278,10 @@ class FileBasedObject(PhysicalObject):
   simulation_filename = tl.Unicode(allow_none=True)
   render_filename = tl.Unicode(allow_none=True)
   render_import_kwargs = tl.Dict(key_trait=tl.ObjectName())
+
+  # If true, applies the transform to all loaded nodes after loading the GLB.
+  # This makes loading GLB files reproduce the expected workflow of Blender in
+  # UI, minus a 90 degree X-axis rotation applied after loading.
+  glb_do_transform_apply_after_import = tl.Bool(False)
 
   # TODO: trigger error when changing filenames or asset-id after the fact

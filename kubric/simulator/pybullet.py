@@ -1,4 +1,4 @@
-# Copyright 2023 The Kubric Authors.
+# Copyright 2024 The Kubric Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,11 +22,9 @@ import sys
 import tempfile
 from typing import Dict, List, Optional, Tuple, Union
 
-import tensorflow as tf
-from singledispatchmethod import singledispatchmethod
-
 from kubric import core
 from kubric.redirect_io import RedirectStream
+import tensorflow as tf
 
 # --- hides the "pybullet build time: May 26 2021 18:52:36" message on import
 with RedirectStream(stream=sys.stderr):
@@ -86,7 +84,7 @@ class PyBullet(core.View):
   def physics_client(self):
     return self._physics_client.client
 
-  @singledispatchmethod
+  @functools.singledispatchmethod
   def add_asset(self, asset: core.Asset) -> Optional[int]:
     raise NotImplementedError(f"Cannot add {asset!r}")
 

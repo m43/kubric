@@ -1,4 +1,4 @@
-# Copyright 2023 The Kubric Authors.
+# Copyright 2024 The Kubric Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,30 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=function-redefined (removes singledispatchmethod pylint errors)
-
 import collections
+from contextlib import redirect_stdout
+import functools
 import io
 import logging
 import os
 import sys
-from contextlib import redirect_stdout
-from typing import Any, Dict, Optional, Sequence, Union
 import tempfile
-
-from kubric.safeimport.bpy import bpy
-
-import numpy as np
-import tensorflow as tf
-from singledispatchmethod import singledispatchmethod
+from typing import Any, Dict, Optional, Sequence, Union
 
 import kubric as kb
 from kubric import core
+from kubric import file_io
 from kubric.core.assets import UndefinedAsset
+from kubric.file_io import PathLike
 from kubric.redirect_io import RedirectStream
 from kubric.renderer import blender_utils
-from kubric import file_io
-from kubric.file_io import PathLike
+from kubric.safeimport.bpy import bpy
+import numpy as np
+import tensorflow as tf
 
 logger = logging.getLogger(__name__)
 
@@ -358,7 +354,7 @@ class Blender(core.View):
         logger.info("Loading scene from '%s'", custom_scene)
         bpy.ops.wm.open_mainfile(filepath=custom_scene)
 
-  @singledispatchmethod
+  @functools.singledispatchmethod
   def add_asset(self, asset: core.Asset) -> Any:
     raise NotImplementedError(f"Cannot add {asset!r}")
 
@@ -418,18 +414,38 @@ class Blender(core.View):
           elif extension in ["glb", "gltf"]:
             bpy.ops.import_scene.gltf(filepath=obj.render_filename,
                                       **obj.render_import_kwargs)
+
+            # Apply all transforms on objects before subselecting the mesh.
+            # This is optional to not break backwards compatibility.
+            if obj.glb_do_transform_apply_after_import:
+              bpy.ops.object.transform_apply(
+                  location=True, rotation=True, scale=True
+              )
+
             # gltf files often contain "Empty" objects as placeholders for camera / lights etc.
-            # here we are interested only in the meshes, so delete everything else
-            non_mesh_objects = [obj for obj in bpy.context.selected_objects if obj.type != "MESH"]
-            bpy.ops.object.delete({"selected_objects": non_mesh_objects})
+            # here we are interested only in the meshes, we filter these out and join all meshes into one.
+            mesh = [m for m in bpy.context.selected_objects if m.type == "MESH"]
+            assert mesh
+            for ob in mesh:
+              ob.select_set(state=True)
+              bpy.context.view_layer.objects.active = ob
+
             # make sure one of the objects is active, otherwise join() fails.
             # see https://blender.stackexchange.com/questions/132266/joining-all-meshes-in-any-context-gets-error
-            bpy.context.view_layer.objects.active = (
-                bpy.context.selected_objects[0]
-            )
+            bpy.context.view_layer.objects.active = mesh[0]
             bpy.ops.object.join()
-            # By default gltf objects are loaded with a different rotation than obj files
-            # here we compensate for that to ensure alignment between pybullet and blender
+
+            # Make sure to delete all remaining non-mesh objects. Note that for
+            # some reason deleting the non-mesh objets before joining removes
+            # parts of the meshes in some cases.
+            non_mesh_objects = [
+                obj
+                for obj in bpy.context.selected_objects
+                if obj.type != "MESH"
+            ]
+            with bpy.context.temp_override(selected_objects=non_mesh_objects):
+              bpy.ops.object.delete()
+
             assert len(bpy.context.selected_objects) == 1
             blender_obj = bpy.context.selected_objects[0]
             blender_obj.rotation_quaternion = (0.707107, -0.707107, 0, 0)
